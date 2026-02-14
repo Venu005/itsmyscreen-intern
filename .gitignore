@@ -11,6 +11,7 @@
 !.yarn/versions
 
 .agents/
+
 # testing
 /coverage
 
@@ -33,6 +34,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+.env.local
 
 # vercel
 .vercel
