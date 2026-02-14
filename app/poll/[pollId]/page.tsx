@@ -116,6 +116,7 @@ export default function PollPage() {
           setTimeout(() => setView("form"), 500);
         }}
         fingerprint={fingerprint}
+        hasVoted={hasVoted}
       />
     );
   }
@@ -187,6 +188,7 @@ function ResultsView({
   canVoteAgain,
   onVoteAgain,
   fingerprint,
+  hasVoted,
 }: any) {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center p-4 bg-gray-50 text-gray-900 font-sans">
@@ -225,13 +227,13 @@ function ResultsView({
           >
             Share Poll
           </button>
-          {canVoteAgain && (
+          {(canVoteAgain || !hasVoted) && (
             <button
               id="vote-again-btn"
               onClick={onVoteAgain}
               className="flex-1 rounded-lg bg-black px-3 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-gray-800 transition-all"
             >
-              Vote Again
+              {!hasVoted ? "Cast Vote" : "Vote Again"}
             </button>
           )}
         </div>
