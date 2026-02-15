@@ -8,6 +8,8 @@ import { getFingerprint } from "../../utils/fingerprint";
 import { useParams } from "next/navigation";
 import { toast } from "sonner";
 import TurnstileWidget from "../../components/TurnstileWidget";
+import FaceAuth from "../../components/FaceAuth";
+import { useAction } from "convex/react";
 
 export default function PollPage() {
   const params = useParams();
@@ -17,6 +19,7 @@ export default function PollPage() {
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [isVoting, setIsVoting] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [showFaceAuth, setShowFaceAuth] = useState(false);
   // View state: 'form' or 'results'
   const [view, setView] = useState<"form" | "results">("form");
 
@@ -34,6 +37,7 @@ export default function PollPage() {
     fingerprint ? { pollId, fingerprint } : "skip",
   );
   const castVote = useMutation(api.votes.cast);
+  const castVoteWithFace = useAction(api.votes.castWithFace);
 
   // Initial view logic: If user voted and multiple votes are NOT allowed, show results.
   // We use a flag to only set this once to avoid overriding user navigation (e.g. "Vote Again")
@@ -60,7 +64,20 @@ export default function PollPage() {
 
   const handleVote = async () => {
     if (selectedOption === null) return;
+
+    // If multiple votes are NOT allowed, require Face Auth
+    if (!poll.settings.allowMultipleVotes) {
+      setShowFaceAuth(true);
+      return;
+    }
+
+    // Otherwise, proceed with standard voting (IP/Fingerprint only)
+    await submitVote(null);
+  };
+
+  const submitVote = async (faceDescriptor: Float32Array | null) => {
     setIsVoting(true);
+    setShowFaceAuth(false); // Hide if open
 
     try {
       // Best effort IP fetch with timeout
@@ -78,14 +95,28 @@ export default function PollPage() {
         console.warn("Could not fetch IP, using fallback");
       }
 
-      await castVote({
-        pollId,
-        optionIndex: selectedOption,
-        voterFingerprint: fingerprint,
-        ipAddress: ipAddress,
-        userAgent: navigator.userAgent,
-        token: turnstileToken || undefined,
-      });
+      if (faceDescriptor) {
+        // Use Face Auth Action
+        await castVoteWithFace({
+          pollId,
+          optionIndex: selectedOption!,
+          voterFingerprint: fingerprint!, // ensured by checks
+          ipAddress: ipAddress,
+          userAgent: navigator.userAgent,
+          token: turnstileToken || undefined,
+          embedding: Array.from(faceDescriptor),
+        });
+      } else {
+        // Use Standard Mutation
+        await castVote({
+          pollId,
+          optionIndex: selectedOption!,
+          voterFingerprint: fingerprint!,
+          ipAddress: ipAddress,
+          userAgent: navigator.userAgent,
+          token: turnstileToken || undefined,
+        });
+      }
 
       toast.success("Vote submitted successfully!");
       setView("results");
@@ -95,7 +126,7 @@ export default function PollPage() {
       if (err.data) {
         toast.error(err.data);
       } else {
-        toast.error("Failed to submit vote. Please try again.");
+        toast.error(err.message || "Failed to submit vote. Please try again.");
       }
     } finally {
       setIsVoting(false);
@@ -177,6 +208,13 @@ export default function PollPage() {
           </button>
         </div>
       </div>
+
+      {showFaceAuth && (
+        <FaceAuth
+          onFaceDetected={(descriptor) => submitVote(descriptor)}
+          onCancel={() => setShowFaceAuth(false)}
+        />
+      )}
     </div>
   );
 }

@@ -21,10 +21,16 @@ export default defineSchema({
     ipHash: v.string(),
     userAgent: v.string(),
     timestamp: v.number(),
+    embedding: v.optional(v.array(v.float64())),
   })
     .index("by_poll", ["pollId"])
     .index("by_poll_and_fingerprint", ["pollId", "voterFingerprint"])
     .index("by_poll_and_ip", ["pollId", "ipHash"])
     .index("by_fingerprint", ["voterFingerprint"])
-    .index("by_timestamp", ["timestamp"]),
+    .index("by_timestamp", ["timestamp"])
+    .vectorIndex("by_embedding", {
+      vectorField: "embedding",
+      dimensions: 128,
+      filterFields: ["pollId"],
+    }),
 });
